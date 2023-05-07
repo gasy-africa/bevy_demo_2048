@@ -1,8 +1,8 @@
 use bevy::asset::HandleId;
 use bevy::prelude::*;
 
-pub static WINDOW_WIDTH: f32 = 800.0;
-pub static WINDOW_HEIGHT: f32 = 600.0;
+pub static WINDOW_WIDTH: f32 = 400.0;
+pub static WINDOW_HEIGHT: f32 = 300.0;
 pub static CELL_SPACE: f32 = 6.0;
 pub static CELL_SIDE_NUM: u32 = 4;
 pub static COLOR_BACKGROUND: Color = Color::rgb(187.0 / 255.0, 173.0 / 255.0, 160.0 / 255.0);
