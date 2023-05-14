@@ -45,18 +45,11 @@ rm Payload.plist Entitlements.plist
 cp -r assets "target/${ARCH}-apple-ios/debug/bundle/ios/$APP_NAME.app"
 
 # Install the App onto the booted device
-# DEBUG="--debug"
+DEBUG="--debug"
 ios-deploy ${DEBUG} \
            --id ${DEVICE_ID} \
            --bundle_id ${BUNDLE_ID}  \
            --bundle "target/${ARCH}-apple-ios/debug/bundle/ios/$APP_NAME.app"
-
-# Upload a file to your app's Documents folder
-# ios-deploy --bundle_id ${BUNDLE_ID} --upload assets --to assets
-# ios-deploy --id ${DEVICE_ID} --bundle_id ${BUNDLE_ID} --mkdir assets
-# ios-deploy --id ${DEVICE_ID} --bundle_id ${BUNDLE_ID} --mkdir assets/sounds
-# ios-deploy --id ${DEVICE_ID} --bundle_id ${BUNDLE_ID} --upload "assets/sounds/Windless Slopes.ogg" --to "assets/sounds/Windless Slopes.ogg"
-
 
 # Error: A valid provisioning profile for this executable was not found. 
 
