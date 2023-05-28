@@ -14,8 +14,19 @@ use bevy::render::render_resource::ShaderType;
 use bevy::sprite::{Anchor, MaterialMesh2dBundle};
 use bevy::text::Text2dBounds;
 use bevy::window::PresentMode;
+use bevy::input::touch::{TouchPhase, TouchInput};
 
 fn main() {
+	// create a "constructor" closure, which can initialize
+    // our data and move it into a closure that bevy can run as a system
+    let mut config = TouchEvent {
+		ev: TouchInput { 
+				phase: TouchPhase::Started
+			, position: Vec2 { x: 0.0, y: 0.0 }
+			, force: None, id: 0 
+		}
+	};
+
 	App::new()
 		.add_plugins(DefaultPlugins.set(WindowPlugin {
 			window: WindowDescriptor {
@@ -33,7 +44,32 @@ fn main() {
 		.add_state(VICTORY_or_DEFEAT::NONE)
 		// .add_startup_system(setup)
 		.add_system_set(SystemSet::on_enter(VICTORY_or_DEFEAT::NONE).with_system(setup))
-		.add_system_set(SystemSet::on_update(VICTORY_or_DEFEAT::NONE).with_system(keyboard_input))
+		.add_system_set(
+			SystemSet::on_update(VICTORY_or_DEFEAT::NONE)
+				.label("input")
+				.with_system(keyboard_input)
+				.with_system(move |
+					events: EventReader<TouchInput>, 
+					asset_server: Res<AssetServer>,
+					cell_value_save: ResMut<CELL_VALUE_SAVE>,
+					text_query: Query< &mut Text, With<CellValue> >,
+					score_query: Query< &mut Text, Without<CellValue> >,
+					materials: ResMut< Assets<ColorMaterial> >,
+					app_state: ResMut< State<VICTORY_or_DEFEAT> >,
+					| {
+					// call our function from inside the closure
+					handle_touches(
+						events,
+						asset_server,
+						cell_value_save,
+						text_query,
+						score_query,
+						materials,
+						app_state,
+						&mut config,
+					);
+				})
+		)
 		.add_system_set(SystemSet::on_enter(VICTORY_or_DEFEAT::DEFEAT).with_system(DefeatFunction))
 		.add_system_set(SystemSet::on_enter(VICTORY_or_DEFEAT::VICTORY).with_system(VictoryFunction))
 		// .add_system(keyboard_input)
@@ -189,55 +225,59 @@ fn keyboard_input(
 	if keyboard_input.just_pressed(KeyCode::Left) {
 		moved = MOVE_DIRECTION::LEFT;
 	}
+	motion(moved, asset_server, cell_Value_Save, text_query, score_query, materials, app_state);
+}
 
+fn motion(moved: MOVE_DIRECTION,
+	mut asset_server: Res<AssetServer>,
+	mut cell_value_save: ResMut<CELL_VALUE_SAVE>,
+	mut text_query: Query< &mut Text, With<CellValue> >,
+	mut score_query: Query< &mut Text, Without<CellValue> >,
+	mut materials: ResMut<Assets<ColorMaterial>>,
+	mut app_state: ResMut<State<VICTORY_or_DEFEAT>>
+) {
 	match moved {
 		MOVE_DIRECTION::NONE => return,
 		_ => {
-			let mut i = 0;
-			Move_Value(moved, &mut cell_Value_Save);
-
-			score_query.single_mut().sections[1].value = cell_Value_Save.score.to_string();
-
-			let side_length: f32 = (WINDOW_HEIGHT - CELL_SPACE * (CELL_SIDE_NUM as f32 + 1.0)) / CELL_SIDE_NUM as f32;
-			let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-			let mut text_style = TextStyle {
-				font,
-				font_size: side_length / 2.0,
-				color: COLOR_BROWN,
-			};
-
-			for mut text in text_query.iter_mut() {
-				let cell_value_temp = cell_Value_Save.valueSave[i / 4][i % 4];
-
-				if cell_value_temp > 4 {
-					text_style.color = COLOR_WHITE;
-				} else {
-					text_style.color = COLOR_BROWN;
-				}
-
-				if cell_value_temp != 0 {
-					text.sections[0].style = text_style.clone();
-					text.sections[0].value = cell_Value_Save.valueSave[i / 4][i % 4].to_string();
-				} else {
-					text.sections[0].value = "".to_string();
-				}
-				materials.set_untracked(cell_Value_Save.cellBackGround[i], ColorMaterial::from(cell_color(cell_Value_Save.valueSave[i / 4][i % 4])));
-				i += 1;
+		let mut i = 0;
+		Move_Value(moved, &mut cell_value_save);
+		score_query.single_mut().sections[1].value = cell_value_save.score.to_string();
+		let side_length: f32 = (WINDOW_HEIGHT - CELL_SPACE * (CELL_SIDE_NUM as f32 + 1.0)) / CELL_SIDE_NUM as f32;
+		let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+		let mut text_style = TextStyle {
+			font,
+			font_size: side_length / 2.0,
+			color: COLOR_BROWN,
+		};
+		for mut text in text_query.iter_mut() {
+			let cell_value_temp = cell_value_save.valueSave[i / 4][i % 4];
+			if cell_value_temp > 4 {
+				text_style.color = COLOR_WHITE;
+			} else {
+				text_style.color = COLOR_BROWN;
 			}
-
-			let result = check_result(&mut cell_Value_Save);
-			match result {
-				VICTORY_or_DEFEAT::VICTORY => {
-					println!("victory");
-					app_state.overwrite_set(VICTORY_or_DEFEAT::VICTORY);
-				},
-				VICTORY_or_DEFEAT::DEFEAT => {
-					println!("defeat");
-					app_state.overwrite_set(VICTORY_or_DEFEAT::DEFEAT);
-				},
-				VICTORY_or_DEFEAT::NONE => println!("none")
+			if cell_value_temp != 0 {
+				text.sections[0].style = text_style.clone();
+				text.sections[0].value = cell_value_save.valueSave[i / 4][i % 4].to_string();
+			} else {
+				text.sections[0].value = "".to_string();
 			}
+			materials.set_untracked(cell_value_save.cellBackGround[i], ColorMaterial::from(cell_color(cell_value_save.valueSave[i / 4][i % 4])));
+			i += 1;
 		}
+		let result = check_result(&mut cell_value_save);
+		match result {
+			VICTORY_or_DEFEAT::VICTORY => {
+				println!("victory");
+				app_state.overwrite_set(VICTORY_or_DEFEAT::VICTORY);
+			},
+			VICTORY_or_DEFEAT::DEFEAT => {
+				println!("defeat");
+				app_state.overwrite_set(VICTORY_or_DEFEAT::DEFEAT);
+			},
+			VICTORY_or_DEFEAT::NONE => println!("none")
+		}
+	}
 	}
 }
 
@@ -301,4 +341,74 @@ fn VictoryFunction(
 			..default()
 		}
 	));
+}
+
+struct TouchEvent {
+    ev: TouchInput,
+}
+
+fn handle_touches(
+    mut events: EventReader<TouchInput>,
+	asset_server: Res<AssetServer>,
+	mut cell_value_save: ResMut<CELL_VALUE_SAVE>,
+	mut text_query: Query<(&mut Text), (With<CellValue>)>,
+	mut score_query: Query<(&mut Text), (Without<CellValue>)>,
+	mut materials: ResMut<Assets<ColorMaterial>>,
+	mut app_state: ResMut<State<VICTORY_or_DEFEAT>>,
+    state: &mut TouchEvent,
+) {
+	let mut moved = MOVE_DIRECTION::NONE;
+
+    for ev in events.iter() {
+        // in real apps you probably want to store and track touch ids somewhere
+        match ev.phase {
+            TouchPhase::Started => {
+                println!("Touch {} started at: {:?}", ev.id, ev.position);
+                state.ev = *ev;
+            }
+            TouchPhase::Moved => {
+                println!("Touch {} moved to: {:?}", ev.id, ev.position);
+            }
+            TouchPhase::Ended => {
+                println!("Touch {} ended at: {:?}", ev.id, ev.position);
+				moved = move_calculation(*ev, state);
+            }
+            TouchPhase::Cancelled => {
+                println!("Touch {} cancelled at: {:?}", ev.id, ev.position);
+            }
+        }
+    }
+	motion(moved, asset_server, cell_value_save, text_query, score_query, materials, app_state);
+
+}
+
+fn move_calculation(
+	ev: TouchInput,
+	state: &mut TouchEvent,
+) -> MOVE_DIRECTION {
+	println!("State {} ended at: {:?}", state.ev.id, state.ev.position);
+	let x = ev.position.x - state.ev.position.x;
+	let y = ev.position.y - state.ev.position.y;
+	let mut moved = MOVE_DIRECTION::NONE;
+	if x.abs() > y.abs() {
+		// x has biggest move
+		if x.is_sign_positive() {
+			moved = MOVE_DIRECTION::RIGHT
+		} else {
+			moved = MOVE_DIRECTION::LEFT			
+		}
+	} else {
+		// y has biggest move
+		if y.is_sign_positive() {
+			moved = MOVE_DIRECTION::DOWN
+		} else {
+			moved = MOVE_DIRECTION::UP			
+		}
+	}
+	state.ev = TouchInput { 
+		phase: TouchPhase::Started
+		, position: Vec2 { x: 0.0, y: 0.0 }
+		, force: None, id: 0 
+	};
+	moved
 }

@@ -7,12 +7,11 @@ DEVICE_ID=${1}
 
 ARCH=aarch64
 APP_NAME="$(cat Cargo.toml | dasel -r toml '.package.name')"
-
 BUNDLE_ID="$(cat Cargo.toml | dasel -r toml '.package.metadata.bundle.identifier')"
 
-# Signing
-SIGNATURE="$(cat Signing.toml | dasel -r toml '.package.metadata.signing.signature')"
-PROVISIONING_FILE="$(cat Signing.toml | dasel -r toml '.package.metadata.signing.provisioning_file')"
+# iOS Bundle and Signing
+SIGNATURE="$(cat .cargo/config.toml | dasel -r toml '.package.metadata.signing.signature')"
+PROVISIONING_FILE="$(cat .cargo/config.toml | dasel -r toml '.package.metadata.signing.provisioning_file')"
 
 # Add a specific platform
 rustup target add ${ARCH}-apple-ios
@@ -39,7 +38,6 @@ codesign -dvvvv "target/${ARCH}-apple-ios/debug/bundle/ios/$APP_NAME.app"
 
 # Remove the poperty lists used to code sign
 rm Payload.plist Entitlements.plist
-
 
 # Copy assets in bundle
 cp -r assets "target/${ARCH}-apple-ios/debug/bundle/ios/$APP_NAME.app"

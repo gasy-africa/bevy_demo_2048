@@ -1,7 +1,7 @@
 # bevy_demo_2048
 Game 2048 by rust-bevy
 
-- [ ] Add the below `Signing.toml` file for the script `launch-devices.sh` to work
+- [ ] Add the below `.cargo/config.toml` file for the script `launch-devices.sh` to work
 
 ```toml
 # Metadata used when generating an iOS APP, for example.
